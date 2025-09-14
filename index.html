@@ -1,0 +1,1270 @@
+<html>
+
+<head>
+    <title>Projectile Motion Simulator</title>
+
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            color: #0f1411;
+            font-family: sans-serif;
+        }
+
+        body {
+            display: grid;
+            background-color: #f9fbf9;
+            grid-template-areas: "inputs canvas";
+            grid-template-columns: 1fr 3fr;
+        }
+
+        #canvas {
+            z-index: 1;
+            grid-area: canvas;
+            image-rendering: pixelated;
+        }
+
+        #inputs {
+            background-color: #cdeacd;
+            padding: 0.2em;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            -khtml-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
+            user-select: none;
+            z-index: 2;
+            grid-area: inputs;
+            overflow: auto !important;
+        }
+
+        math,
+        mi,
+        mo,
+        msub {
+            font-family: math !important;
+        }
+
+        .input-fields {
+            flex: 1;
+            min-width: 0;
+        }
+
+        .input-row {
+            display: flex;
+            align-items: center;
+            gap: 0.3em;
+            margin-bottom: 0.3em;
+        }
+
+        .collapsible-title {
+            background-color: #5eb07e;
+            text-align: center;
+            padding: 0.2em;
+        }
+
+        .collapsible-content {
+            background-color: #92d4ad;
+            padding: 0.2em;
+        }
+
+        details {
+            margin-bottom: 5px;
+        }
+
+        details>summary {
+
+            list-style: none;
+        }
+
+        summary::-webkit-details-marker {
+            display: none
+        }
+
+        summary::after {
+            content: ' ►';
+        }
+
+        details[open] summary:after {
+            content: " ▼";
+        }
+    </style>
+
+    <script>
+        window.addEventListener("load", (event) => {
+            const pausePlayButton = document.getElementById("pause-play-button");
+            const finalVariableSelect = document.getElementById("final-variable-select");
+            const finalVariableInput = document.getElementById("final-variable-input");
+            const initialConditionsDiv = document.getElementById("initial-conditions");
+            const relativeCameraSelect = document.getElementById("relative-camera-select");
+            const inputMethodSelect = document.getElementById("input-method-select");
+            const clearVariablesButton = document.getElementById("clear-variables-button");
+
+            variables = {
+                "x": {
+                    "default": 0,
+                    "unit": "[m]"
+                },
+                "y": {
+                    "default": 0,
+                    "unit": "[m]"
+                },
+                "vx": {
+                    "default": 5,
+                    "unit": "[m/s]"
+                },
+                "vy": {
+                    "default": 5,
+                    "unit": "[m/s]"
+                },
+                "v": {
+                    "default": 0,
+                    "unit": "[m/s]"
+                },
+                "thetav": {
+                    "default": 45,
+                    "unit": "°"
+                },
+                "ax": {
+                    "default": 0,
+                    "unit": "[m/s²]"
+                },
+                "ay": {
+                    "default": 0,
+                    "unit": "[m/s²]"
+                },
+                "a": {
+                    "default": 0,
+                    "unit": "[m/s²]"
+                },
+                "thetaa": {
+                    "default": 0,
+                    "unit": "°"
+                },
+                "g": {
+                    "default": -9.81,
+                    "unit": "[m/s²]"
+                }
+            };
+
+            significantFigures = 3;
+            document.getElementById("significantFigures-input").addEventListener("change", (event) => {
+                significantFigures = Math.min(Math.max(Number(event.target.value), 2), 10);
+                event.target.value = Math.min(Math.max(Number(event.target.value), 2), 10);
+                updateInputFields();
+            });
+
+            for (let name in variables) {
+                window[name] = variables[name]["default"];
+
+                if (name.length == 1) {
+                    initialConditionsDiv.insertAdjacentHTML("beforeend", `
+                    <div class="input-row">
+                        <math class="input-labels">
+                            <mi>${name}</mi>
+                            <mo>=</mo>
+                        </math>
+                        <input type="number" id="${name}-input" class="input-fields" value="${variables[name]["default"]}">
+                        <math>
+                            <mi>${variables[name]["unit"]}</mi>
+                        </math>
+                        <br>
+                    </div>
+                    `);
+                } else if (name == "thetav") {
+                    initialConditionsDiv.insertAdjacentHTML("beforeend", `
+                    <div class="input-row">
+                        <math class="input-labels">
+                            <msub>
+                                <mi>θ</mi>
+                                <mi>v</mi>
+                            </msub>
+                            <mo>=</mo>
+                        </math>
+                        <input type="number" id="${name}-input" class="input-fields" value="${variables[name]["default"]}">
+                        <math>
+                            <mi>${variables[name]["unit"]}</mi>
+                        </math>
+                        <br>
+                    </div>
+                    `);
+                } else if (name == "thetaa") {
+                    initialConditionsDiv.insertAdjacentHTML("beforeend", `
+                    <div class="input-row">
+                        <math class="input-labels">
+                            <msub>
+                                <mi>θ</mi>
+                                <mi>a</mi>
+                            </msub>
+                            <mo>=</mo>
+                        </math>
+                        <input type="number" id="${name}-input" class="input-fields" value="${variables[name]["default"]}">
+                        <math>
+                            <mi>${variables[name]["unit"]}</mi>
+                        </math>
+                        <br>
+                    </div>
+                    `);
+                } else if (name.length >= 2) {
+                    initialConditionsDiv.insertAdjacentHTML("beforeend", `
+                    <div class="input-row">
+                        <math class="input-labels">
+                            <msub>
+                                <mi>${name.charAt(0)}</mi>
+                                <mi>${name.slice(1)}</mi>
+                            </msub>
+                            <mo>=</mo>
+                        </math>
+                        <input type="number" id="${name}-input" class="input-fields" value="${variables[name]["default"]}">
+                        <math>
+                            <mi>${variables[name]["unit"]}</mi>
+                        </math>
+                        <br>
+                    </div>
+                    `);
+                }
+                if (name == "g") {
+                    initialConditionsDiv.insertAdjacentHTML("beforeend", `
+                    <select id="planets-gravity-select">
+                        <option value="-9.81">Earth - 9.81 [m/s²]</option>
+                        <option value="-1.62">Moon - 1.62 [m/s²]</option>
+                        <option value="-274">Sun - 274 [m/s²]</option>
+                        <option value="-3.70">Mercury - 3.70 [m/s²]</option>
+                        <option value="-8.87">Venus - 8.87 [m/s²]</option>
+                        <option value="-3.72">Mars - 3.72 [m/s²]</option>
+                        <option value="-24.8">Jupiter - 24.8 [m/s²]</option>
+                        <option value="-10.4">Saturn - 10.4 [m/s²]</option>
+                        <option value="-8.69">Uranus - 8.69 [m/s²]</option>
+                        <option value="-11.2">Neptune - 11.2 [m/s²]</option>
+                        <option value="-0.62">Pluto - 0.62 [m/s²]</option>
+                    </select>
+                    `);
+                }
+
+                window[`${name}Input`] = document.getElementById(`${name}-input`);
+
+                if (name != "t" && name != "thetav" && name != "thetaa") {
+                    window[`${name}Input`].addEventListener("change", (event) => {
+                        window[name] = Number(event.target.value);
+                        convertInputs();
+                        initial[name] = window[name];
+                        trajectoryT = 0;
+                        draw();
+                    });
+                }
+            }
+
+            t = 0;
+            const tInput = document.getElementById("t-input");
+            tInput.addEventListener("change", (event) => {
+                t = Number(event.target.value);
+                x = initial["x"] + initial["vx"] * t + 0.5 * initial["ax"] * t ** 2;
+                y = initial["y"] + initial["vy"] * t + 0.5 * (initial["ay"] + g) * t ** 2;
+                vx = initial["vx"] + initial["ax"] * t;
+                vy = initial["vy"] + (initial["ay"] + g) * t;
+                convertInputs();
+                updateInputFields();
+                trajectoryT = t;
+                draw();
+            });
+
+            thetavInput.addEventListener("change", (event) => {
+                thetav = Number((((event.target.value % 360) + 360) % 360) * (Math.PI / 180));
+
+                convertInputs();
+                initial["thetav"] = thetav;
+                trajectoryT = 0;
+                draw();
+            });
+
+            thetaaInput.addEventListener("change", (event) => {
+                thetaa = Number((((event.target.value % 360) + 360) % 360) * (Math.PI / 180));
+                convertInputs();
+                initial["thetaa"] = thetaa;
+                trajectoryT = 0;
+                draw();
+            });
+
+            clearVariablesButton.addEventListener("click", () => {
+                for (let name in variables) {
+                    window[name] = 0;
+                    initial[name] = 0;
+                }
+                g = -9.81;
+                initial["g"] = -9.81;
+                planetsGravitySelect.selectedIndex = 0;
+                updateInputFields();
+                draw();
+            });
+
+            updateInputFields();
+            function updateInputFields() {
+                for (let name in variables) {
+                    if (name == "thetav" || name == "thetaa") continue;
+                    if (window[`${name}Input`] !== document.activeElement) {
+                        window[`${name}Input`].value = window[name].toPrecision(significantFigures);
+                    }
+                }
+                if (tInput !== document.activeElement) {
+                    tInput.value = t.toPrecision(significantFigures);
+                }
+                if (thetavInput !== document.activeElement) {
+                    thetavInput.value = (thetav * (180 / Math.PI)).toPrecision(significantFigures);
+                }
+                if (thetaaInput !== document.activeElement) {
+                    thetaaInput.value = (thetaa * (180 / Math.PI)).toPrecision(significantFigures);
+                }
+            }
+
+            trajectoryT = 0;
+            framerate = 60;
+
+            simulationSpeed = 1;
+            document.getElementById("simulation-speed-input").addEventListener("change", (event) => {
+                if (simulationSpeed == 0 && Number(event.target.value) != 0 && !paused) {
+                    simulationSpeed = Math.min(Math.max(Math.round(Number(event.target.value) * 10) / 10, -10), 10);
+                    event.target.value = simulationSpeed;
+                    ticking();
+                }
+                simulationSpeed = Math.min(Math.max(Math.round(Number(event.target.value) * 10) / 10, -10), 10);
+                event.target.value = simulationSpeed;
+            });
+
+            paused = true;
+
+            pausePlayButton.addEventListener("click", (event) => {
+                paused = !paused;
+                if (!paused) {
+                    event.target.innerHTML = "Pause";
+                    trajectoryT = 0;
+                    for (name in variables) {
+                        window[`${name}Input`].disabled = true;
+                        window[`${name}Input`].title = "Reset to change variables";
+                    }
+                    planetsGravitySelect.disabled = true;
+                    planetsGravitySelect.title = "Reset to change variables";
+                    inputMethodSelect.disabled = true;
+                    inputMethodSelect.title = "Reset to change input method";
+                    finalVariableSelect.disabled = true;
+                    finalVariableSelect.title = "Reset to change stop variable";
+                    finalVariableInput.disabled = true;
+                    finalVariableInput.title = "Reset to change stop variable";
+                    clearVariablesButton.disabled = true;
+                    clearVariablesButton.title = "Reset to clear variables";
+                    if (inputMethod == 1) { inputMethod = 2; };
+                    saveVariables();
+                    ticking();
+                } else {
+                    event.target.innerHTML = "Play";
+                }
+            });
+
+            const planetsGravitySelect = document.getElementById("planets-gravity-select");
+
+            inputMethod = 0;
+            inputMethodSelect.addEventListener("change", (event) => {
+                inputMethod = Number(event.target.value);
+                changeAvailableInputs();
+                convertInputs();
+            });
+
+            changeAvailableInputs();
+
+            function changeAvailableInputs() {
+                if (inputMethod == 0) {
+                    vxInput.disabled = false;
+                    vxInput.title = "";
+                    vyInput.disabled = false;
+                    vyInput.title = "";
+                    axInput.disabled = false;
+                    axInput.title = "";
+                    ayInput.disabled = false;
+                    ayInput.title = "";
+
+                    vInput.disabled = true;
+                    vInput.title = "Change input method to 'magnitude and angle' to input v";
+                    thetavInput.disabled = true;
+                    thetavInput.title = "Change input method to 'magnitude and angle' to input θv";
+                    aInput.disabled = true;
+                    aInput.title = "Change input method to 'magnitude and angle' to input a";
+                    thetaaInput.disabled = true;
+                    thetaaInput.title = "Change input method to 'magnitude and angle' to input θa";
+                } else if (inputMethod == 1) {
+                    vxInput.disabled = true;
+                    vxInput.title = "Change input method to 'x and y components' to input vx";
+                    vyInput.disabled = true;
+                    vyInput.title = "Change input method to 'x and y components' to input vy";
+                    axInput.disabled = true;
+                    axInput.title = "Change input method to 'x and y components' to input ax";
+                    ayInput.disabled = true;
+                    ayInput.title = "Change input method to 'x and y components' to input ay";
+
+                    vInput.disabled = false;
+                    vInput.title = "";
+                    thetavInput.disabled = false;
+                    thetavInput.title = "";
+                    aInput.disabled = false;
+                    aInput.title = "";
+                    thetaaInput.disabled = false;
+                    thetaaInput.title = "";
+                }
+            }
+
+            convertInputs();
+            function convertInputs() {
+                if (inputMethod == 0 || inputMethod == 2) {
+                    v = Math.sqrt(vx ** 2 + vy ** 2);
+                    thetav = (((Math.atan2(vy, vx) % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI));
+                    a = Math.sqrt(ax ** 2 + ay ** 2);
+                    thetaa = (((Math.atan2(ay, ax) % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI));
+                    vInput.value = v.toPrecision(significantFigures);
+                    thetavInput.value = (thetav * (180 / Math.PI)).toPrecision(significantFigures);
+                    aInput.value = a.toPrecision(significantFigures);
+                    thetaaInput.value = (thetaa * (180 / Math.PI)).toPrecision(significantFigures);
+                } else if (inputMethod == 1) {
+                    vx = v * Math.cos(thetav);
+                    vy = v * Math.sin(thetav);
+                    ax = a * Math.cos(thetaa);
+                    ay = a * Math.sin(thetaa);
+
+                    vx = Math.abs(vx) < 1e-10 ? 0 : vx;
+                    vy = Math.abs(vy) < 1e-10 ? 0 : vy;
+                    ax = Math.abs(ax) < 1e-10 ? 0 : ax;
+                    ay = Math.abs(ay) < 1e-10 ? 0 : ay;
+
+                    vxInput.value = vx.toPrecision(significantFigures);
+                    vyInput.value = vy.toPrecision(significantFigures);
+                    axInput.value = ax.toPrecision(significantFigures);
+                    ayInput.value = ay.toPrecision(significantFigures);
+                }
+            }
+
+            initial = {};
+            function saveVariables() {
+                if (t == 0) {
+                    for (name in variables) {
+                        initial[name] = window[name];
+                    }
+                    initial["t"] = t;
+                }
+            }
+            saveVariables();
+
+            document.getElementById("reset-button").addEventListener("click", () => {
+                for (name in variables) {
+                    window[name] = initial[name];
+                    window[`${name}Input`].value = window[name].toPrecision(significantFigures);
+                    window[`${name}Input`].disabled = false;
+                    window[`${name}Input`].title = "";
+                }
+                thetav = initial["thetav"];
+                thetavInput.value = (thetav * (180 / Math.PI)).toPrecision(significantFigures);
+                thetavInput.disabled = false;
+                thetavInput.title = "";
+                thetaa = initial["thetaa"];
+                thetaaInput.value = (thetaa * (180 / Math.PI)).toPrecision(significantFigures);
+                thetaaInput.disabled = false;
+                thetaaInput.title = "";
+                planetsGravitySelect.disabled = false;
+                planetsGravitySelect.title = "";
+                inputMethodSelect.disabled = false;
+                inputMethodSelect.title = "";
+                finalVariableSelect.disabled = false;
+                finalVariableSelect.title = "";
+                finalVariableInput.disabled = false;
+                finalVariableInput.title = "";
+                clearVariablesButton.disabled = false;
+                clearVariablesButton.title = "";
+                t = 0;
+                tInput.value = t;
+                pause();
+                changeAvailableInputs();
+                if (JSON.parse(relativeCameraSelect.value)) {
+                    cameraX = x * 50 * cameraZoom;
+                    cameraY = -y * 50 * cameraZoom;
+                }
+                draw();
+            });
+
+            document.getElementById("teleport-to-ball-button").addEventListener("click", () => {
+                cameraX = x * 50 * cameraZoom;
+                cameraY = -y * 50 * cameraZoom;
+                draw();
+            });
+
+            document.getElementById("zoom-in-camera-button").addEventListener("click", () => {
+                cameraZoom *= Math.exp(0.25);
+                cameraZoom = Math.min(Math.max(cameraZoom, 0.01), 10);
+                draw();
+            });
+
+            document.getElementById("zoom-out-camera-button").addEventListener("click", () => {
+                cameraZoom *= Math.exp(-0.25);
+                cameraZoom = Math.min(Math.max(cameraZoom, 0.01), 10);
+                draw();
+            });
+
+            planetsGravitySelect.addEventListener("input", (event) => {
+                g = Number(event.target.value);
+                gInput.value = g;
+            });
+
+            const canvas = document.getElementById("canvas");
+            ctx = canvas.getContext("2d");
+
+            cameraX = 0;
+            cameraY = 0;
+            cameraZoom = 1;
+
+            // world coordinates to canvas coordinates
+            function wtc(x, y) {
+                return {
+                    "x": ((x * 50) * cameraZoom) + (canvas.width / 2) - cameraX,
+                    "y": ((-y * 50) * cameraZoom) + (canvas.height / 2) - cameraY
+                };
+            }
+
+            // canvas coordinates to world coordinates
+            function ctw(x, y) {
+                return {
+                    "x": ((x + cameraX - (canvas.width / 2)) / cameraZoom) / 50,
+                    "y": -((y + cameraY - (canvas.height / 2)) / cameraZoom) / 50
+                };
+            }
+
+            showAxes = true;
+            showTrajectory = true;
+            showAngleArcs = true;
+            showVelocityVectors = true;
+            showAccelerationVectors = false;
+            showGravityVector = true;
+            showVectorComponents = true;
+            document.getElementById("axes").addEventListener("change", (event) => {
+                showAxes = event.target.checked;
+                draw();
+            });
+            document.getElementById("trajectory").addEventListener("change", (event) => {
+                showTrajectory = event.target.checked;
+                draw();
+            });
+            document.getElementById("angle-arcs").addEventListener("change", (event) => {
+                showAngleArcs = event.target.checked;
+                draw();
+            });
+            document.getElementById("velocity-vectors").addEventListener("change", (event) => {
+                showVelocityVectors = event.target.checked;
+                draw();
+            });
+            document.getElementById("acceleration-vectors").addEventListener("change", (event) => {
+                showAccelerationVectors = event.target.checked;
+                draw();
+            });
+            document.getElementById("gravity-vector").addEventListener("change", (event) => {
+                showGravityVector = event.target.checked;
+                draw();
+            });
+            document.getElementById("vector-components").addEventListener("change", (event) => {
+                showVectorComponents = event.target.checked;
+                draw();
+            });
+
+            function draw() {
+                canvas.width = window.innerWidth * 3 / 4;
+                canvas.height = window.innerHeight;
+
+                ctx.lineWidth = 2;
+                if (showAxes) {
+                    // x-axis
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        0,
+                        wtc(0, 0)["y"]
+                    );
+                    ctx.lineTo(
+                        canvas.width,
+                        wtc(0, 0)["y"]
+                    );
+                    ctx.stroke();
+                    ctx.textBaseline = "middle";
+                    ctx.textAlign = "center";
+                    ctx.font = "20px sans-serif";
+                    ctx.fillText("x", canvas.width - 10, wtc(0, 0)["y"] - 10);
+
+                    // y-axis
+                    ctx.beginPath();
+                    ctx.moveTo(
+                        wtc(0, 0)["x"],
+                        0
+                    );
+                    ctx.lineTo(
+                        wtc(0, 0)["x"],
+                        canvas.height
+                    );
+                    ctx.stroke();
+                    ctx.textBaseline = "middle";
+                    ctx.textAlign = "center";
+                    ctx.font = "20px sans-serif";
+                    ctx.fillText("y", wtc(0, 0)["x"] + 10, 10);
+
+                    // origin 
+                    ctx.textBaseline = "middle";
+                    ctx.textAlign = "center";
+                    ctx.font = "20px sans-serif";
+                    ctx.fillText("0", wtc(0, 0)["x"] - 10, wtc(0, 0)["y"] + 12);
+                }
+
+                if (showTrajectory) {
+                    ctx.beginPath();
+                    ctx.moveTo(wtc(initial["x"], initial["y"])["x"], wtc(initial["x"], initial["y"])["y"]);
+                    ctx.quadraticCurveTo(
+                        wtc(initial["x"] + initial["vx"] * (trajectoryT / 2), initial["y"] + initial["vy"] * (trajectoryT / 2))["x"],
+                        wtc(initial["x"] + initial["vx"] * (trajectoryT / 2), initial["y"] + initial["vy"] * (trajectoryT / 2))["y"],
+                        wtc(initial["x"] + initial["vx"] * trajectoryT + 0.5 * initial["ax"] * (trajectoryT ** 2),
+                            initial["y"] + initial["vy"] * trajectoryT + 0.5 * (initial["ay"] + g) * (trajectoryT ** 2))["x"],
+                        wtc(initial["x"] + initial["vx"] * trajectoryT + 0.5 * initial["ax"] * (trajectoryT ** 2),
+                            initial["y"] + initial["vy"] * trajectoryT + 0.5 * (initial["ay"] + g) * (trajectoryT ** 2))["y"]
+                    );
+                    ctx.stroke();
+                }
+
+                if (showVelocityVectors) {
+                    ctx.strokeStyle = "#0000FF";
+                    ctx.fillStyle = "#0000FF";
+
+                    if (showVectorComponents) {
+                        // vx vector
+                        ctx.beginPath();
+
+                        ctx.moveTo(wtc(x, y)["x"], wtc(x, y)["y"]);
+                        ctx.lineTo(wtc(x + vx, y)["x"], wtc(x + vx, y)["y"]);
+
+                        ctx.moveTo(wtc(x + vx, y)["x"] - 20 * cameraZoom * Math.sign(vx), wtc(x + vx, y)["y"] - 10 * cameraZoom);
+                        ctx.lineTo(wtc(x + vx, y)["x"], wtc(x + vx, y)["y"]);
+                        ctx.lineTo(wtc(x + vx, y)["x"] - 20 * cameraZoom * Math.sign(vx), wtc(x + vx, y)["y"] + 10 * cameraZoom);
+                        ctx.stroke();
+
+                        ctx.textBaseline = "middle";
+                        ctx.textAlign = "center";
+                        ctx.font = "20px sans-serif";
+                        ctx.fillText("v", wtc(x + vx, y)["x"] + 10 * Math.sign(vx), wtc(x + vx, y)["y"]);
+                        ctx.font = "14px sans-serif";
+                        ctx.fillText("x", wtc(x + vx, y)["x"] + 10 * Math.sign(vx) + 7, wtc(x + vx, y)["y"] + 6);
+
+                        // vy vector 
+                        ctx.beginPath();
+
+                        ctx.moveTo(wtc(x, y)["x"], wtc(x, y)["y"]);
+                        ctx.lineTo(wtc(x, y + vy)["x"], wtc(x, y + vy)["y"]);
+
+                        ctx.moveTo(wtc(x, y + vy)["x"] - 10 * cameraZoom, wtc(x, y + vy)["y"] + 20 * cameraZoom * Math.sign(vy));
+                        ctx.lineTo(wtc(x, y + vy)["x"], wtc(x, y + vy)["y"]);
+                        ctx.lineTo(wtc(x, y + vy)["x"] + 10 * cameraZoom, wtc(x, y + vy)["y"] + 20 * cameraZoom * Math.sign(vy));
+                        ctx.stroke();
+
+                        ctx.textBaseline = "middle";
+                        ctx.textAlign = "center";
+                        ctx.font = "20px sans-serif";
+                        ctx.fillText("v", wtc(x, y + vy)["x"], wtc(x, y + vy)["y"] - 10 * Math.sign(vy));
+                        ctx.font = "14px sans-serif";
+                        ctx.fillText("y", wtc(x, y + vy)["x"] + 7, wtc(x, y + vy)["y"] - 10 * Math.sign(vy) + 6);
+                    }
+
+                    // v vector
+                    ctx.beginPath();
+
+                    ctx.moveTo(wtc(x, y)["x"], wtc(x, y)["y"]);
+                    ctx.lineTo(wtc(x + vx, y + vy)["x"], wtc(x + vx, y + vy)["y"]);
+
+                    ctx.save();
+                    ctx.translate(wtc(x + vx, y + vy)["x"], wtc(x + vx, y + vy)["y"]);
+                    ctx.rotate(-thetav);
+
+                    ctx.moveTo(-20 * cameraZoom, -10 * cameraZoom);
+                    ctx.lineTo(0, 0);
+                    ctx.lineTo(-20 * cameraZoom, 10 * cameraZoom);
+                    ctx.stroke();
+
+                    ctx.restore();
+
+                    ctx.textBaseline = "middle";
+                    ctx.textAlign = "center";
+                    ctx.font = "20px sans-serif";
+                    ctx.fillText("v", wtc(x + vx, y + vy)["x"] + 10 * Math.cos(thetav), wtc(x + vx, y + vy)["y"] - 10 * Math.sin(thetav));
+
+                    if (showAngleArcs) {
+                        // thetav arc
+                        ctx.beginPath();
+                        ctx.arc(wtc(x, y)["x"], wtc(x, y)["y"], 50 * cameraZoom, 0, -thetav, true);
+                        ctx.stroke();
+
+                        ctx.textBaseline = "middle";
+                        ctx.textAlign = "center";
+                        ctx.font = "20px sans-serif";
+                        ctx.fillText("θ", wtc(x, y)["x"] + 60 * cameraZoom * Math.cos(thetav / 2), wtc(x, y)["y"] - 60 * cameraZoom * Math.sin(thetav / 2));
+                        ctx.font = "14px sans-serif";
+                        ctx.fillText("v", wtc(x, y)["x"] + 60 * cameraZoom * Math.cos(thetav / 2) + 7, wtc(x, y)["y"] - 60 * cameraZoom * Math.sin(thetav / 2) + 6);
+                    }
+                }
+
+                if (showAccelerationVectors) {
+                    ctx.strokeStyle = "#00FF00";
+                    ctx.fillStyle = "#00FF00";
+
+                    if (showVectorComponents) {
+                        // ax vector
+                        ctx.beginPath();
+
+                        ctx.moveTo(wtc(x, y)["x"], wtc(x, y)["y"]);
+                        ctx.lineTo(wtc(x + ax, y)["x"], wtc(x + ax, y)["y"]);
+
+                        ctx.moveTo(wtc(x + ax, y)["x"] - 20 * cameraZoom * Math.sign(ax), wtc(x + ax, y)["y"] - 10 * cameraZoom);
+                        ctx.lineTo(wtc(x + ax, y)["x"], wtc(x + ax, y)["y"]);
+                        ctx.lineTo(wtc(x + ax, y)["x"] - 20 * cameraZoom * Math.sign(ax), wtc(x + ax, y)["y"] + 10 * cameraZoom);
+                        ctx.stroke();
+
+                        ctx.textBaseline = "middle";
+                        ctx.textAlign = "center";
+                        ctx.font = "20px sans-serif";
+                        ctx.fillText("a", wtc(x + ax, y)["x"] + 10 * Math.sign(ax), wtc(x + ax, y)["y"]);
+                        ctx.font = "14px sans-serif";
+                        ctx.fillText("x", wtc(x + ax, y)["x"] + 10 * Math.sign(ax) + 7, wtc(x + ax, y)["y"] + 6);
+
+                        // ay vector 
+                        ctx.beginPath();
+
+                        ctx.moveTo(wtc(x, y)["x"], wtc(x, y)["y"]);
+                        ctx.lineTo(wtc(x, y + ay)["x"], wtc(x, y + ay)["y"]);
+
+                        ctx.moveTo(wtc(x, y + ay)["x"] - 10 * cameraZoom, wtc(x, y + ay)["y"] + 20 * cameraZoom * Math.sign(ay));
+                        ctx.lineTo(wtc(x, y + ay)["x"], wtc(x, y + ay)["y"]);
+                        ctx.lineTo(wtc(x, y + ay)["x"] + 10 * cameraZoom, wtc(x, y + ay)["y"] + 20 * cameraZoom * Math.sign(ay));
+                        ctx.stroke();
+
+                        ctx.textBaseline = "middle";
+                        ctx.textAlign = "center";
+                        ctx.font = "20px sans-serif";
+                        ctx.fillText("a", wtc(x, y + ay)["x"], wtc(x, y + ay)["y"] - 10 * Math.sign(ay));
+                        ctx.font = "14px sans-serif";
+                        ctx.fillText("y", wtc(x, y + ay)["x"] + 7, wtc(x, y + ay)["y"] - 10 * Math.sign(ay) + 6);
+                    }
+
+                    // a vector
+                    ctx.beginPath();
+
+                    ctx.moveTo(wtc(x, y)["x"], wtc(x, y)["y"]);
+                    ctx.lineTo(wtc(x + ax, y + ay)["x"], wtc(x + ax, y + ay)["y"]);
+
+                    ctx.save();
+                    ctx.translate(wtc(x + ax, y + ay)["x"], wtc(x + ax, y + ay)["y"]);
+                    ctx.rotate(-thetaa);
+
+                    ctx.moveTo(-20 * cameraZoom, -10 * cameraZoom);
+                    ctx.lineTo(0, 0);
+                    ctx.lineTo(-20 * cameraZoom, 10 * cameraZoom);
+                    ctx.stroke();
+
+                    ctx.restore();
+
+                    ctx.textBaseline = "middle";
+                    ctx.textAlign = "center";
+                    ctx.font = "20px sans-serif";
+                    ctx.fillText("a", wtc(x + ax, y + ay)["x"] + 10 * Math.cos(thetaa), wtc(x + ax, y + ay)["y"] - 10 * Math.sin(thetaa));
+
+                    if (showAngleArcs) {
+                        // thetaa arc
+                        ctx.beginPath();
+                        ctx.arc(wtc(x, y)["x"], wtc(x, y)["y"], 70 * cameraZoom, 0, -thetaa, true);
+                        ctx.stroke();
+
+                        ctx.textBaseline = "middle";
+                        ctx.textAlign = "center";
+                        ctx.font = "20px sans-serif";
+                        ctx.fillText("θ", wtc(x, y)["x"] + 80 * cameraZoom * Math.cos(thetaa / 2), wtc(x, y)["y"] - 60 * cameraZoom * Math.sin(thetaa / 2));
+                        ctx.font = "14px sans-serif";
+                        ctx.fillText("a", wtc(x, y)["x"] + 80 * cameraZoom * Math.cos(thetaa / 2) + 7, wtc(x, y)["y"] - 60 * cameraZoom * Math.sin(thetaa / 2) + 6);
+                    }
+                }
+
+                if (showGravityVector) {
+                    // g vector 
+                    ctx.strokeStyle = "#FFFF00";
+                    ctx.fillStyle = "#FFFF00";
+                    ctx.beginPath();
+
+                    ctx.moveTo(wtc(x, y)["x"], wtc(x, y)["y"]);
+                    ctx.lineTo(wtc(x, y + g)["x"], wtc(x, y + g)["y"]);
+
+                    ctx.moveTo(wtc(x, y + g)["x"] - 10 * cameraZoom, wtc(x, y + g)["y"] + 20 * cameraZoom * Math.sign(g));
+                    ctx.lineTo(wtc(x, y + g)["x"], wtc(x, y + g)["y"]);
+                    ctx.lineTo(wtc(x, y + g)["x"] + 10 * cameraZoom, wtc(x, y + g)["y"] + 20 * cameraZoom * Math.sign(g));
+                    ctx.stroke();
+
+                    ctx.textBaseline = "middle";
+                    ctx.textAlign = "center";
+                    ctx.font = "20px sans-serif";
+                    ctx.fillText("g", wtc(x, y + g)["x"], wtc(x, y + g)["y"] - 10 * Math.sign(g));
+                }
+
+                // ball
+                ctx.fillStyle = "#FF0000";
+                ctx.beginPath();
+                ctx.arc(
+                    wtc(x, y)["x"],
+                    wtc(x, y)["y"],
+                    25 * cameraZoom, 0, 2 * Math.PI
+                );
+                ctx.fill();
+
+                // bar scale
+                ctx.fillStyle = "black";
+                ctx.fillRect(canvas.width - 100, canvas.height - 20, 2, 5);
+                ctx.fillRect(canvas.width - 100, canvas.height - 17, 50, 2);
+                ctx.fillRect(canvas.width - 52, canvas.height - 20, 2, 5);
+
+                ctx.textBaseline = "middle";
+                ctx.font = "12px sans-serif";
+                ctx.textAlign = "start";
+                ctx.fillText(`${Math.round((1 / cameraZoom) * 10) / 10} m`, canvas.width - 45, canvas.height - 17.5);
+                ctx.textAlign = "end";
+                ctx.fillText(`1 m = ${Math.round((50 * cameraZoom) * 10) / 10} pixels`, canvas.width - 105, canvas.height - 17.5);
+            }
+            draw();
+
+            window.addEventListener("resize", () => {
+                draw();
+            });
+
+            panning = false;
+
+            window.addEventListener("mousedown", (event) => {
+                if (event.target == canvas && event.button == 0) {
+                    panning = true;
+                    document.body.style.cursor = "move";
+                }
+            });
+
+            window.addEventListener("mousemove", (event) => {
+                if (panning) {
+                    cameraX -= event.movementX;
+                    cameraY -= event.movementY;
+                    draw();
+                }
+            });
+
+            window.addEventListener("mouseup", (event) => {
+                if (event.button == 0) {
+                    panning = false;
+                    document.body.style.cursor = "unset";
+                }
+            });
+
+            canvas.addEventListener("wheel", (event) => {
+                event.preventDefault();
+
+                canvasRect = canvas.getBoundingClientRect();
+                canvasMouseX = event.clientX - canvasRect.left;
+                canvasMouseY = event.clientY - canvasRect.top;
+
+                worldMouseX = ctw(canvasMouseX, canvasMouseY)["x"];
+                worldMouseY = ctw(canvasMouseX, canvasMouseY)["y"];
+
+                cameraZoom *= Math.exp(-event.deltaY * 0.0025);
+                cameraZoom = Math.min(Math.max(cameraZoom, 0.01), 10);
+
+                newCanvasMouseX = wtc(worldMouseX, worldMouseY)["x"];
+                newCanvasMouseY = wtc(worldMouseX, worldMouseY)["y"];
+
+                cameraX += newCanvasMouseX - canvasMouseX;
+                cameraY += newCanvasMouseY - canvasMouseY;
+
+                draw();
+            }, { "passive": false });
+
+            finalVariable = "None";
+            finalVariableSelect.addEventListener("change", (event) => {
+                finalVariable = event.target.value;
+            });
+
+            finalValue = 0;
+            finalVariableInput.addEventListener("change", (event) => {
+                finalValue = event.target.value;
+            });
+
+            function calculate() {
+                for (let i = 0; i < Math.abs(simulationSpeed) * 10; i++) {
+
+                    if (simulationSpeed > 0) {
+                        vx += ax / (framerate * 10);
+                        vy += ay / (framerate * 10);
+                        vy += g / (framerate * 10);
+
+                        x += vx / (framerate * 10);
+                        y += vy / (framerate * 10);
+
+                        if (JSON.parse(relativeCameraSelect.value)) {
+                            cameraX += vx / (framerate * 10) * Math.sign(simulationSpeed) * 50 * cameraZoom;
+                            cameraY -= vy / (framerate * 10) * Math.sign(simulationSpeed) * 50 * cameraZoom;
+                        }
+
+                        t += 1 / (framerate * 10);
+                        updateInputFields();
+                        trajectoryT = t;
+                    }
+
+                    if (simulationSpeed < 0) {
+                        trajectoryT = t;
+                        updateInputFields();
+                        t -= 1 / (framerate * 10);
+
+                        if (JSON.parse(relativeCameraSelect.value)) {
+                            cameraX += vx / (framerate * 10) * Math.sign(simulationSpeed) * 50 * cameraZoom;
+                            cameraY -= vy / (framerate * 10) * Math.sign(simulationSpeed) * 50 * cameraZoom;
+                        }
+
+                        x -= vx / (framerate * 10);
+                        y -= vy / (framerate * 10);
+
+                        vx -= ax / (framerate * 10);
+                        vy -= ay / (framerate * 10);
+                        vy -= g / (framerate * 10);
+                    }
+                }
+
+                if (inputMethod == 1) { inputMethod = 2; }
+                convertInputs();
+            }
+
+            relativeCameraSelect.addEventListener("change", (event) => {
+                if (JSON.parse(event.target.value)) {
+                    cameraX = x * 50 * cameraZoom;
+                    cameraY = -y * 50 * cameraZoom;
+                    draw();
+                }
+            });
+
+            function pause() {
+                paused = true;
+                if (inputMethod == 2) { inputMethod = 1; }
+                pausePlayButton.innerHTML = "Play";
+            }
+
+            function onFinalReached() {
+                x = initial["x"] + initial["vx"] * t + 0.5 * initial["ax"] * t ** 2;
+                y = initial["y"] + initial["vy"] * t + 0.5 * (initial["ay"] + g) * t ** 2;
+                vx = initial["vx"] + initial["ax"] * t;
+                vy = initial["vy"] + (initial["ay"] + g) * t;
+                convertInputs();
+                if (inputMethod == 2) { inputMethod = 1; }
+                updateInputFields();
+                draw();
+                pause();
+            }
+
+            finalTime = NaN;
+            finalTimeCheck = NaN;
+            ticking();
+            function ticking() {
+                if (simulationSpeed == 0 || paused) {
+                    return;
+                };
+                calculate();
+
+                if (finalVariable == "x") {
+                    if (initial["ax"] == 0) {
+                        if (t * simulationSpeed >= finalTimeCheck * simulationSpeed) {
+                            t = finalTime;
+                            onFinalReached();
+                        }
+
+                        finalTime = initial["t"] + (finalValue - initial["x"]) / initial["vx"];
+
+                        if (simulationSpeed > 0) {
+                            if (t >= finalTime) {
+                                finalTimeCheck = NaN;
+                            } else {
+                                finalTimeCheck = finalTime;
+                            }
+                        }
+
+                        if (simulationSpeed < 0) {
+                            if (t > finalTime) {
+                                finalTimeCheck = finalTime;
+                            } else {
+                                finalTimeCheck = NaN;
+                            }
+                        }
+                    } else {
+                        if (t * simulationSpeed >= finalTime * simulationSpeed) {
+                            t = finalTime;
+                            onFinalReached();
+                        }
+
+                        squareRootedDiscriminator = Math.sqrt(initial["vx"] ** 2 + 2 * initial["ax"] * (finalValue - initial["x"]));
+                        quadraticPlusTime = (initial["t"] + (-initial["vx"] + squareRootedDiscriminator) / initial["ax"]);
+                        quadraticMinusTime = (initial["t"] + (-initial["vx"] - squareRootedDiscriminator) / initial["ax"]);
+
+                        if (simulationSpeed > 0) {
+                            if (t >= Math.max(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = NaN;
+                            } else if (t >= Math.min(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = Math.max(quadraticPlusTime, quadraticMinusTime);
+                            } else {
+                                finalTime = Math.min(quadraticPlusTime, quadraticMinusTime);
+                            }
+                        }
+
+                        if (simulationSpeed < 0) {
+                            if (t > Math.max(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = Math.max(quadraticPlusTime, quadraticMinusTime);
+                            } else if (t > Math.min(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = Math.min(quadraticPlusTime, quadraticMinusTime);
+                            } else {
+                                finalTime = NaN;
+                            }
+                        }
+                    }
+                }
+
+                if (finalVariable == "y") {
+                    if ((initial["ay"] + g) == 0) {
+                        if (t * simulationSpeed >= finalTimeCheck * simulationSpeed) {
+                            t = finalTime;
+                            onFinalReached();
+                        }
+
+                        finalTime = initial["t"] + (finalValue - initial["y"]) / initial["vy"];
+
+                        if (simulationSpeed > 0) {
+                            if (t >= finalTime) {
+                                finalTimeCheck = NaN;
+                            } else {
+                                finalTimeCheck = finalTime;
+                            }
+                        }
+
+                        if (simulationSpeed < 0) {
+                            if (t > finalTime) {
+                                finalTimeCheck = finalTime;
+                            } else {
+                                finalTimeCheck = NaN;
+                            }
+                        }
+                    } else {
+                        if (t * simulationSpeed >= finalTime * simulationSpeed) {
+                            t = finalTime;
+                            onFinalReached();
+                        }
+
+                        squareRootedDiscriminator = Math.sqrt(initial["vy"] ** 2 + 2 * (initial["ay"] + g) * (finalValue - initial["y"]));
+                        quadraticPlusTime = (initial["t"] + (-initial["vy"] + squareRootedDiscriminator) / (initial["ay"] + g));
+                        quadraticMinusTime = (initial["t"] + (-initial["vy"] - squareRootedDiscriminator) / (initial["ay"] + g));
+
+                        if (simulationSpeed > 0) {
+                            if (t >= Math.max(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = NaN;
+                            } else if (t >= Math.min(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = Math.max(quadraticPlusTime, quadraticMinusTime);
+                            } else {
+                                finalTime = Math.min(quadraticPlusTime, quadraticMinusTime);
+                            }
+                        }
+
+                        if (simulationSpeed < 0) {
+                            if (t > Math.max(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = Math.max(quadraticPlusTime, quadraticMinusTime);
+                            } else if (t > Math.min(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = Math.min(quadraticPlusTime, quadraticMinusTime);
+                            } else {
+                                finalTime = NaN;
+                            }
+                        }
+                    }
+                }
+
+                if (finalVariable == "vx") {
+                    if (t * simulationSpeed >= finalTimeCheck * simulationSpeed) {
+                        t = finalTime;
+                        onFinalReached();
+                    }
+
+                    finalTime = initial["t"] + (finalValue - initial["vx"]) / initial["ax"];
+
+                    if (simulationSpeed > 0) {
+                        if (t >= finalTime) {
+                            finalTimeCheck = NaN;
+                        } else {
+                            finalTimeCheck = finalTime;
+                        }
+                    }
+
+                    if (simulationSpeed < 0) {
+                        if (t > finalTime) {
+                            finalTimeCheck = finalTime;
+                        } else {
+                            finalTimeCheck = NaN;
+                        }
+                    }
+                }
+
+                if (finalVariable == "vy") {
+                    if (t * simulationSpeed >= finalTimeCheck * simulationSpeed) {
+                        t = finalTime;
+                        onFinalReached();
+                    }
+
+                    finalTime = initial["t"] + (finalValue - initial["vy"]) / (initial["ay"] + g);
+
+                    if (simulationSpeed > 0) {
+                        if (t >= finalTime) {
+                            finalTimeCheck = NaN;
+                        } else {
+                            finalTimeCheck = finalTime;
+                        }
+                    }
+
+                    if (simulationSpeed < 0) {
+                        if (t > finalTime) {
+                            finalTimeCheck = finalTime;
+                        } else {
+                            finalTimeCheck = NaN;
+                        }
+                    }
+                }
+
+                draw();
+                setTimeout(() => { ticking(); }, 1000 / framerate);
+            }
+        });
+    </script>
+</head>
+
+<body>
+
+
+
+    <div id="inputs">
+        <details open>
+            <summary class="collapsible-title"> Simulation controls</summary>
+
+            <div class="collapsible-content">
+                <div class="input-row">
+                    <button id="pause-play-button">Play</button>
+                    <button id="reset-button">Reset</button>
+                    <input type="number" id="simulation-speed-input" value="1" max="10" min="-10">
+                    <p>× speed</p><br>
+                </div>
+                <div class="input-row">
+                    <math class="input-labels">
+                        <mi>t</mi>
+                        <mo>=</mo>
+                    </math>
+                    <input type="number" id="t-input" class="input-fields" value="0" step="0.01">
+                    <math>
+                        <mi>[s]</mi>
+                    </math>
+                    <br>
+                </div>
+                <div class="input-row">
+                    <label>Stop when:<br>
+                        <select id="final-variable-select">
+                            <option value="None">None</option>
+                            <option value="x">x</option>
+                            <option value="y">y</option>
+                            <option value="vx">vx</option>
+                            <option value="vy">vy</option>
+                        </select>
+                        <math>
+                            <mo>=</mo>
+                        </math>
+                        <input type="number" id="final-variable-input">
+                    </label>
+                    <br>
+                </div>
+            </div>
+        </details>
+
+        <details open>
+            <summary class="collapsible-title">Camera controls</summary>
+
+            <div class="collapsible-content">
+                <div class="input-row">
+                    <label>Camera relative to ball:
+                        <select id="relative-camera-select">
+                            <option value="false">No</option>
+                            <option value="true">Yes</option>
+                        </select>
+                    </label>
+                    <br>
+                </div>
+                <div class="input-row">
+                    <button id="teleport-to-ball-button">Teleport camera to ball</button>
+                </div>
+                <div class="input-row">
+                    <p>Zoom:</p>
+                    <button id="zoom-in-camera-button">＋</button>
+                    <button id="zoom-out-camera-button">－</button>
+                </div>
+            </div>
+        </details>
+
+        <details open>
+            <summary class="collapsible-title">Initial conditions</summary>
+
+            <div class="collapsible-content">
+                <div class="input-row">
+                    <input type="number" id="significantFigures-input" value="3" max="10" min="2">
+                    <p>significant figures</p><br>
+                </div>
+                <div id="initial-conditions">
+                    <div class="input-row">
+                        <button id="clear-variables-button">Clear</button>
+                    </div>
+                    <div class="input-row">
+                        <label>Input:
+                            <select id="input-method-select">
+                                <option value="0">x and y components</option>
+                                <option value="1">magnitude and angle</option>
+                            </select>
+                        </label>
+                        <br>
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <details>
+            <summary class="collapsible-title">Visuals</summary>
+
+            <div class="collapsible-content">
+                <div class="input-row">
+                    <label>Show axes: <input type="checkbox" id="axes" checked></label>
+                </div>
+                <div class="input-row">
+                    <label>Show trajectory: <input type="checkbox" id="trajectory" checked></label>
+                </div>
+                <div class="input-row">
+                    <label>Show angles: <input type="checkbox" id="angle-arcs" checked></label>
+                </div>
+                <div class="input-row">
+                    <label>Show velocity vectors: <input type="checkbox" id="velocity-vectors" checked></label>
+                </div>
+                <div class="input-row">
+                    <label>Show acceleration vectors: <input type="checkbox" id="acceleration-vectors"></label>
+                </div>
+                <div class="input-row">
+                    <label>Show gravity vector: <input type="checkbox" id="gravity-vector" checked></label>
+                </div>
+                <div class="input-row">
+                    <label>Show vector components: <input type="checkbox" id="vector-components" checked></label>
+                </div>
+            </div>
+        </details>
+    </div>
+
+
+    <canvas id="canvas">
+    </canvas>
+
+</body>
+
+</html>
