@@ -109,6 +109,14 @@
                     "default": 0,
                     "unit": "[m]"
                 },
+                "deltax": {
+                    "default": 0,
+                    "unit": "[m]"
+                },
+                "deltay": {
+                    "default": 0,
+                    "unit": "[m]"
+                },
                 "vx": {
                     "default": 5,
                     "unit": "[m/s]"
@@ -162,6 +170,36 @@
                     <div class="input-row">
                         <math class="input-labels">
                             <mi>${name}</mi>
+                            <mo>=</mo>
+                        </math>
+                        <input type="number" id="${name}-input" class="input-fields" value="${variables[name]["default"]}">
+                        <math>
+                            <mi>${variables[name]["unit"]}</mi>
+                        </math>
+                        <br>
+                    </div>
+                    `);
+                } else if (name == "deltax") {
+                    initialConditionsDiv.insertAdjacentHTML("beforeend", `
+                    <div class="input-row">
+                        <math class="input-labels">
+                            <mi>Δ</mi>
+                            <mi>x</mi>
+                            <mo>=</mo>
+                        </math>
+                        <input type="number" id="${name}-input" class="input-fields" value="${variables[name]["default"]}">
+                        <math>
+                            <mi>${variables[name]["unit"]}</mi>
+                        </math>
+                        <br>
+                    </div>
+                    `);
+                } else if (name == "deltay") {
+                    initialConditionsDiv.insertAdjacentHTML("beforeend", `
+                    <div class="input-row">
+                        <math class="input-labels">
+                            <mi>Δ</mi>
+                            <mi>y</mi>
                             <mo>=</mo>
                         </math>
                         <input type="number" id="${name}-input" class="input-fields" value="${variables[name]["default"]}">
@@ -254,6 +292,9 @@
                 }
             }
 
+            deltaxInput.disabled = true;
+            deltayInput.disabled = true;
+
             t = 0;
             const tInput = document.getElementById("t-input");
             tInput.addEventListener("change", (event) => {
@@ -297,22 +338,26 @@
                 draw();
             });
 
+            function toSigFigs(number) {
+                return Number(Math.round(number * 10 ** (significantFigures + 1)) / 10 ** (significantFigures + 1)).toPrecision(significantFigures);
+            }
+
             updateInputFields();
             function updateInputFields() {
                 for (let name in variables) {
                     if (name == "thetav" || name == "thetaa") continue;
                     if (window[`${name}Input`] !== document.activeElement) {
-                        window[`${name}Input`].value = window[name].toPrecision(significantFigures);
+                        window[`${name}Input`].value = toSigFigs(window[name]);
                     }
                 }
                 if (tInput !== document.activeElement) {
-                    tInput.value = t.toPrecision(significantFigures);
+                    tInput.value = toSigFigs(t);
                 }
                 if (thetavInput !== document.activeElement) {
-                    thetavInput.value = (thetav * (180 / Math.PI)).toPrecision(significantFigures);
+                    thetavInput.value = toSigFigs(thetav * (180 / Math.PI));
                 }
                 if (thetaaInput !== document.activeElement) {
-                    thetaaInput.value = (thetaa * (180 / Math.PI)).toPrecision(significantFigures);
+                    thetaaInput.value = toSigFigs(thetaa * (180 / Math.PI));
                 }
             }
 
@@ -341,6 +386,8 @@
                         window[`${name}Input`].disabled = true;
                         window[`${name}Input`].title = "Reset to change variables";
                     }
+                    deltaxInput.title = "";
+                    deltayInput.title = "";
                     planetsGravitySelect.disabled = true;
                     planetsGravitySelect.title = "Reset to change variables";
                     inputMethodSelect.disabled = true;
@@ -417,10 +464,10 @@
                     thetav = (((Math.atan2(vy, vx) % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI));
                     a = Math.sqrt(ax ** 2 + ay ** 2);
                     thetaa = (((Math.atan2(ay, ax) % (2 * Math.PI)) + (2 * Math.PI)) % (2 * Math.PI));
-                    vInput.value = v.toPrecision(significantFigures);
-                    thetavInput.value = (thetav * (180 / Math.PI)).toPrecision(significantFigures);
-                    aInput.value = a.toPrecision(significantFigures);
-                    thetaaInput.value = (thetaa * (180 / Math.PI)).toPrecision(significantFigures);
+                    vInput.value = toSigFigs(v);
+                    thetavInput.value = toSigFigs(thetav * (180 / Math.PI));
+                    aInput.value = toSigFigs(a);
+                    thetaaInput.value = toSigFigs(thetaa * (180 / Math.PI));
                 } else if (inputMethod == 1) {
                     vx = v * Math.cos(thetav);
                     vy = v * Math.sin(thetav);
@@ -432,10 +479,10 @@
                     ax = Math.abs(ax) < 1e-10 ? 0 : ax;
                     ay = Math.abs(ay) < 1e-10 ? 0 : ay;
 
-                    vxInput.value = vx.toPrecision(significantFigures);
-                    vyInput.value = vy.toPrecision(significantFigures);
-                    axInput.value = ax.toPrecision(significantFigures);
-                    ayInput.value = ay.toPrecision(significantFigures);
+                    vxInput.value = toSigFigs(vx);
+                    vyInput.value = toSigFigs(vy);
+                    axInput.value = toSigFigs(ax);
+                    ayInput.value = toSigFigs(ay);
                 }
             }
 
@@ -453,16 +500,18 @@
             document.getElementById("reset-button").addEventListener("click", () => {
                 for (name in variables) {
                     window[name] = initial[name];
-                    window[`${name}Input`].value = window[name].toPrecision(significantFigures);
+                    window[`${name}Input`].value = toSigFigs(window[name]);
                     window[`${name}Input`].disabled = false;
                     window[`${name}Input`].title = "";
                 }
+                deltaxInput.disabled = true;
+                deltayInput.disabled = true;
                 thetav = initial["thetav"];
-                thetavInput.value = (thetav * (180 / Math.PI)).toPrecision(significantFigures);
+                thetavInput.value = toSigFigs(thetav * (180 / Math.PI));
                 thetavInput.disabled = false;
                 thetavInput.title = "";
                 thetaa = initial["thetaa"];
-                thetaaInput.value = (thetaa * (180 / Math.PI)).toPrecision(significantFigures);
+                thetaaInput.value = toSigFigs(thetaa * (180 / Math.PI));
                 thetaaInput.disabled = false;
                 thetaaInput.title = "";
                 planetsGravitySelect.disabled = false;
@@ -901,6 +950,9 @@
                         x += vx / (framerate * 10);
                         y += vy / (framerate * 10);
 
+                        deltax = x - initial["x"];
+                        deltay = y - initial["y"];
+
                         if (JSON.parse(relativeCameraSelect.value)) {
                             cameraX += vx / (framerate * 10) * Math.sign(simulationSpeed) * 50 * cameraZoom;
                             cameraY -= vy / (framerate * 10) * Math.sign(simulationSpeed) * 50 * cameraZoom;
@@ -920,6 +972,9 @@
                             cameraX += vx / (framerate * 10) * Math.sign(simulationSpeed) * 50 * cameraZoom;
                             cameraY -= vy / (framerate * 10) * Math.sign(simulationSpeed) * 50 * cameraZoom;
                         }
+
+                        deltax = x - initial["x"];
+                        deltay = y - initial["y"];
 
                         x -= vx / (framerate * 10);
                         y -= vy / (framerate * 10);
@@ -951,6 +1006,8 @@
             function onFinalReached() {
                 x = initial["x"] + initial["vx"] * t + 0.5 * initial["ax"] * t ** 2;
                 y = initial["y"] + initial["vy"] * t + 0.5 * (initial["ay"] + g) * t ** 2;
+                deltax = x - initial["x"];
+                deltay = y - initial["y"];
                 vx = initial["vx"] + initial["ax"] * t;
                 vy = initial["vy"] + (initial["ay"] + g) * t;
                 convertInputs();
@@ -1081,6 +1138,118 @@
                     }
                 }
 
+                if (finalVariable == "deltax") {
+                    if (initial["ax"] == 0) {
+                        if (t * simulationSpeed >= finalTimeCheck * simulationSpeed) {
+                            t = finalTime;
+                            onFinalReached();
+                        }
+
+                        finalTime = initial["t"] + (finalValue) / initial["vx"];
+
+                        if (simulationSpeed > 0) {
+                            if (t >= finalTime) {
+                                finalTimeCheck = NaN;
+                            } else {
+                                finalTimeCheck = finalTime;
+                            }
+                        }
+
+                        if (simulationSpeed < 0) {
+                            if (t > finalTime) {
+                                finalTimeCheck = finalTime;
+                            } else {
+                                finalTimeCheck = NaN;
+                            }
+                        }
+                    } else {
+                        if (t * simulationSpeed >= finalTime * simulationSpeed) {
+                            t = finalTime;
+                            onFinalReached();
+                        }
+
+                        squareRootedDiscriminator = Math.sqrt(initial["vx"] ** 2 + 2 * initial["ax"] * (finalValue));
+                        quadraticPlusTime = (initial["t"] + (-initial["vx"] + squareRootedDiscriminator) / initial["ax"]);
+                        quadraticMinusTime = (initial["t"] + (-initial["vx"] - squareRootedDiscriminator) / initial["ax"]);
+
+                        if (simulationSpeed > 0) {
+                            if (t >= Math.max(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = NaN;
+                            } else if (t >= Math.min(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = Math.max(quadraticPlusTime, quadraticMinusTime);
+                            } else {
+                                finalTime = Math.min(quadraticPlusTime, quadraticMinusTime);
+                            }
+                        }
+
+                        if (simulationSpeed < 0) {
+                            if (t > Math.max(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = Math.max(quadraticPlusTime, quadraticMinusTime);
+                            } else if (t > Math.min(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = Math.min(quadraticPlusTime, quadraticMinusTime);
+                            } else {
+                                finalTime = NaN;
+                            }
+                        }
+                    }
+                }
+
+                if (finalVariable == "deltay") {
+                    if ((initial["ay"] + g) == 0) {
+                        if (t * simulationSpeed >= finalTimeCheck * simulationSpeed) {
+                            t = finalTime;
+                            onFinalReached();
+                        }
+
+                        finalTime = initial["t"] + (finalValue) / initial["vy"];
+
+                        if (simulationSpeed > 0) {
+                            if (t >= finalTime) {
+                                finalTimeCheck = NaN;
+                            } else {
+                                finalTimeCheck = finalTime;
+                            }
+                        }
+
+                        if (simulationSpeed < 0) {
+                            if (t > finalTime) {
+                                finalTimeCheck = finalTime;
+                            } else {
+                                finalTimeCheck = NaN;
+                            }
+                        }
+                    } else {
+                        if (t * simulationSpeed >= finalTime * simulationSpeed) {
+                            t = finalTime;
+                            onFinalReached();
+                        }
+
+                        squareRootedDiscriminator = Math.sqrt(initial["vy"] ** 2 + 2 * (initial["ay"] + g) * (finalValue));
+                        quadraticPlusTime = (initial["t"] + (-initial["vy"] + squareRootedDiscriminator) / (initial["ay"] + g));
+                        quadraticMinusTime = (initial["t"] + (-initial["vy"] - squareRootedDiscriminator) / (initial["ay"] + g));
+
+                        if (simulationSpeed > 0) {
+                            if (t >= Math.max(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = NaN;
+                            } else if (t >= Math.min(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = Math.max(quadraticPlusTime, quadraticMinusTime);
+                            } else {
+                                finalTime = Math.min(quadraticPlusTime, quadraticMinusTime);
+                            }
+                        }
+
+                        if (simulationSpeed < 0) {
+                            if (t > Math.max(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = Math.max(quadraticPlusTime, quadraticMinusTime);
+                            } else if (t > Math.min(quadraticPlusTime, quadraticMinusTime)) {
+                                finalTime = Math.min(quadraticPlusTime, quadraticMinusTime);
+                            } else {
+                                finalTime = NaN;
+                            }
+                        }
+                    }
+                }
+
                 if (finalVariable == "vx") {
                     if (t * simulationSpeed >= finalTimeCheck * simulationSpeed) {
                         t = finalTime;
@@ -1170,6 +1339,8 @@
                             <option value="None">None</option>
                             <option value="x">x</option>
                             <option value="y">y</option>
+                            <option value="deltax">Δx</option>
+                            <option value="deltay">Δy</option>
                             <option value="vx">vx</option>
                             <option value="vy">vy</option>
                         </select>
