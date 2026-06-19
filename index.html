@@ -183,7 +183,7 @@
                     initialConditionsDiv.insertAdjacentHTML("beforeend", `
                     <div class="input-row">
                         <math class="input-labels">
-                            <mi>Δ</mi>
+                            <mi mathvariant="normal">Δ</mi>
                             <mi>x</mi>
                             <mo>=</mo>
                         </math>
@@ -198,7 +198,7 @@
                     initialConditionsDiv.insertAdjacentHTML("beforeend", `
                     <div class="input-row">
                         <math class="input-labels">
-                            <mi>Δ</mi>
+                            <mi mathvariant="normal">Δ</mi>
                             <mi>y</mi>
                             <mo>=</mo>
                         </math>
@@ -582,6 +582,7 @@
             }
 
             showAxes = true;
+            showScaleBar = true;
             showTrajectory = true;
             showAngleArcs = true;
             showVelocityVectors = true;
@@ -590,6 +591,10 @@
             showVectorComponents = true;
             document.getElementById("axes").addEventListener("change", (event) => {
                 showAxes = event.target.checked;
+                draw();
+            });
+            document.getElementById("scale-bar").addEventListener("change", (event) => {
+                showScaleBar = event.target.checked;
                 draw();
             });
             document.getElementById("trajectory").addEventListener("change", (event) => {
@@ -864,18 +869,20 @@
                 );
                 ctx.fill();
 
-                // bar scale
-                ctx.fillStyle = "black";
-                ctx.fillRect(canvas.width - 100, canvas.height - 20, 2, 5);
-                ctx.fillRect(canvas.width - 100, canvas.height - 17, 50, 2);
-                ctx.fillRect(canvas.width - 52, canvas.height - 20, 2, 5);
+                // scale bar
+                if (showScaleBar) {
+                    ctx.fillStyle = "black";
+                    ctx.fillRect(canvas.width - 100, canvas.height - 20, 2, 5);
+                    ctx.fillRect(canvas.width - 100, canvas.height - 17, 50, 2);
+                    ctx.fillRect(canvas.width - 52, canvas.height - 20, 2, 5);
 
-                ctx.textBaseline = "middle";
-                ctx.font = "12px sans-serif";
-                ctx.textAlign = "start";
-                ctx.fillText(`${Math.round((1 / cameraZoom) * 10) / 10} m`, canvas.width - 45, canvas.height - 17.5);
-                ctx.textAlign = "end";
-                ctx.fillText(`1 m = ${Math.round((50 * cameraZoom) * 10) / 10} pixels`, canvas.width - 105, canvas.height - 17.5);
+                    ctx.textBaseline = "middle";
+                    ctx.font = "12px sans-serif";
+                    ctx.textAlign = "start";
+                    ctx.fillText(`${Math.round((1 / cameraZoom) * 10) / 10} m`, canvas.width - 45, canvas.height - 17.5);
+                    ctx.textAlign = "end";
+                    ctx.fillText(`1 m = ${Math.round((50 * cameraZoom) * 10) / 10} pixels`, canvas.width - 105, canvas.height - 17.5);
+                }
             }
             draw();
 
@@ -1409,6 +1416,9 @@
             <div class="collapsible-content">
                 <div class="input-row">
                     <label>Show axes: <input type="checkbox" id="axes" checked></label>
+                </div>
+                <div class="input-row">
+                    <label>Show scale bar: <input type="checkbox" id="scale-bar" checked></label>
                 </div>
                 <div class="input-row">
                     <label>Show trajectory: <input type="checkbox" id="trajectory" checked></label>
